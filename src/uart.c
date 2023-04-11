@@ -207,3 +207,11 @@ void async_test(){
     *AUX_MU_IER = 0;
     uart_puts("END\n\r");
 }
+
+void printf(char *fmt, ...) {
+    char temp[128];
+    __builtin_va_list args;
+    __builtin_va_start(args, fmt);
+    vsprintf(temp,fmt,args);
+    uart_send_string(temp);
+}

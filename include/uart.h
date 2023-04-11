@@ -17,4 +17,5 @@ void enable_uart_irq();
 void disable_uart_irq();
 
 int async_uart_handle();
+void printf(char *fmt, ...);
 #endif
