@@ -18,6 +18,7 @@ void exception_entry(){
   uart_puts("\n\rESR_EL1: ");
   uart_hex(esr_el1);
   uart_puts("\n\r");
+  while(1);
 }
 
 
