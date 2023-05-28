@@ -1,7 +1,11 @@
 #include "fdt.h"
 #include "uart.h"
 #include "string.h"
+#include "memory.h"
 unsigned long CPIO_BASE;
+unsigned long FIND_POS;
+unsigned long FDT_START_POS;
+unsigned long FDT_END_POS;
 unsigned int big2litter_endian(unsigned int num){
   unsigned int ret = 0;
   ret = ret | (num >> 24);
@@ -10,9 +14,9 @@ unsigned int big2litter_endian(unsigned int num){
   ret = ret | (num << 24);
   return ret;
 }
-// void fdt_traverse(fdt_header *header){
 
 void fdt_traverse(fdt_header *header, void (*callback)(fdt_prop*, char*, char*)){
+  
   if(big2litter_endian(header->magic) != FDT_MAGIC) return;
   uint32_t* struct_block_begin = (uint32_t*)((char*)header+big2litter_endian(header->off_dt_struct));
   char* string_block_begin = (char*)header + big2litter_endian(header->off_dt_strings);
@@ -66,9 +70,40 @@ void initramfs_callback(fdt_prop* prop, char* N_name, char*prop_name){
   if(!strcmp(N_name, "chosen") && !strcmp(prop_name, "linux,initrd-start")){
     uint32_t load_addr = *((uint32_t*)(prop + 1));
     CPIO_BASE = big2litter_endian(load_addr);
+    FIND_POS = big2litter_endian(load_addr);
     // uart_puts("CPIO_BASE: ");
     // uart_hex(CPIO_BASE);
     // uart_puts("\n\r");
   }
+}
+
+void initramfs_end_callback(fdt_prop* prop, char* N_name, char* prop_name){
+  if(!strcmp(N_name, "chosen") && !strcmp(prop_name, "linux,initrd-end")){
+    uint32_t load_addr = *((uint32_t*)(prop + 1));
+    FIND_POS = big2litter_endian(load_addr);
+    // CPIO_BASE = big2litter_endian(load_addr);
+    // uart_puts("CPIO_BASE: ");
+    // uart_hex(CPIO_BASE);
+    // uart_puts("\n\r");
+  }
+}
+
+void fdt_reserve_memory(fdt_header *header){
+  //reserve fdt section
+  FDT_START_POS = (unsigned long)header;
+  // printf("HEADER: 0x%x\n", FDT_START_POS);
+  FDT_END_POS = FDT_START_POS + big2litter_endian(header->totalsize);
+  // printf("SIZE: 0x%x\n", FDT_END_POS);
+  memory_reserve((void*)FDT_START_POS, (void*)FDT_END_POS);
+}
+
+void initramfs_reserve_memory(fdt_header *header){
+  fdt_traverse(header, initramfs_callback);
+  unsigned int start = FIND_POS;
+  // printf("INITRAMFS START: 0x%x\n", start);
+  fdt_traverse(header, initramfs_end_callback);
+  unsigned int end = FIND_POS;
+  // printf("INITRAMFS END: 0x%x\n", end);
+  memory_reserve((void*)start, (void*)end);
 }
 

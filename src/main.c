@@ -6,6 +6,7 @@
 #include "allocate.h"
 #include "fdt.h"
 #include "timer.h"
+#include "memory.h"
 #define RECV_LEN 100
 #define USER_STACK_TOP 0x40000
 static char recv_buf[RECV_LEN] = {0};
@@ -235,6 +236,28 @@ void shell(){
       timeout = get_cpu_freq() * timeout;
       add_timer(timer_print1_callback, msg, timeout);
     }
+    else if(strcmp(recv_buf, "page_allocate") == 0){
+      printf("testcase page allocate start\r\n");
+      void* temp = page_malloc(8);
+      void* temp2 = page_malloc(8);
+      page_free(temp);
+      void* temp3 = page_malloc(8);
+      void* temp4 = page_malloc(8);
+      page_free(temp2);
+      temp = page_malloc(4096* 3);
+      page_free(temp3);
+      page_free(temp4);
+      page_free(temp);
+      printf("testcase page allocate end\r\n");
+    }
+    else if(strcmp(recv_buf, "chunk_allocate") == 0){
+      printf("testcase chunk allocate start\r\n");
+      void* temp = malloc(8);
+      void* temp2 = malloc(256);
+      free(temp);
+      free(temp2);
+      printf("testcase chunk allocate end\n\r");
+    }
     else if(strcmp(recv_buf, "help") == 0){
       uart_puts("help:\t\tlist available command\n\r");
       uart_puts("ls:\t\tlist initramfs files\n\r");
@@ -243,6 +266,7 @@ void shell(){
       uart_puts("exec:\t\tececute the user program\n\r");
       uart_puts("async:\t\ttestcase for async uart\n\r");
       uart_puts("timer:\t\ttestcase for timer multiplexing\n\r");
+      uart_puts("page_allocate:\t\ttestcae for page allocator\n\r");
       uart_puts("reboot:\t\treboot rpi\n\r");
     }
     else {
@@ -260,6 +284,10 @@ void main(){
   // set up serial console
     uart_init();
     fdt_traverse((fdt_header*)DTB_BASE, initramfs_callback);
+    // fdt_traverse((fdt_header*)DTB_BASE, initramfs_end_callback);
+    fdt_reserve_memory((fdt_header*) DTB_BASE);
+    initramfs_reserve_memory((fdt_header*) DTB_BASE);
+
     asm volatile("msr DAIFClr, 0xf");
     core_timer_enable();
     uart_puts("CPIO_BASE: ");
@@ -279,6 +307,7 @@ void main(){
     uart_puts("\r\n\tARM MEMORY SIZE: ");
     uart_hex(size);
     uart_puts("\r\n");
+    init_memory_reserve();
     while(1) {
       shell();
     }

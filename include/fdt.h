@@ -30,6 +30,8 @@ typedef struct{
 
 extern unsigned long CPIO_BASE;
 void initramfs_callback(fdt_prop* prop, char* N_name, char* prop_name);
-
-void fdt_traverse(fdt_header *header_addr, void (*callback)(fdt_prop*, char*, char*));
+void initramfs_end_callback(fdt_prop* prop, char* N_name, char* prop_name);
+void fdt_reserve_memory(fdt_header *header);
+void initramfs_reserve_memory(fdt_header *header);
+void fdt_traverse(fdt_header *header, void (*callback)(fdt_prop*, char*, char*));
 #endif

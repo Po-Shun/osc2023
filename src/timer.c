@@ -65,7 +65,7 @@ void add_timer(void (*callback)(char*), char* msg, unsigned long timeout){
     // arrange the event in ascending order in terms of expired timeout
     sort_timer_event(add_event);
   }
-  asm volatile("msr DAIFClr, 0xf");
+  // asm volatile("msr DAIFClr, 0xf");
 }
 
 void core_timer_handle(){
