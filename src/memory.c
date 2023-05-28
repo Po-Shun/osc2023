@@ -6,6 +6,10 @@ static framearray_entry frame_array[TOTAL_FRAME];
 static struct memory_pool mpools[MAX_POOL_NUM] = {{0, 0, {0}, 0, {0}, {0}, {0}}};
 static int frame_list[4];
 static int max_size = 0;
+static unsigned int reserve_pos = 0;
+static unsigned int reserve_section[8][2] = {{0,0}};
+extern char _end;
+char* kernel_end = &_end;
 
 int pow(int base, int pow) {
     int ret = 1;
@@ -125,6 +129,7 @@ void page_free(void* address){
         frame_buddy->prev->next = frame_buddy->next;
       }
       else{
+        // frame_buddy has no prev means it is in the head of frame_list 
         if(frame_buddy->next != 0){
           frame_list[frame_buddy->size] = frame_buddy->next->index;
         }
@@ -317,7 +322,109 @@ void free(void* address){
   printf("[DEBUG] couldn't find the target\n");
 }
 
+unsigned int find_page_frame_index(void* pos){
+  unsigned int ret = (int)((unsigned int)pos) / MEM_PAGE_SIZE;
+  printf("IDX: 0x%x\n", ret);
+  return ret;
+}
+void memory_reserve(void* start, void* end){
+  reserve_section[reserve_pos][0] = find_page_frame_index(start);
+  reserve_section[reserve_pos][1] = find_page_frame_index(end);
+  reserve_pos ++;
+}
+
+void init_memory_reserve(){
+  int n_frame_block = pow(2, MAX_BLOCK_SIZE_ORDER);
+  // reserve kernel image 
+  memory_reserve(0x0, (void*)kernel_end);
+
+  //initialize frame list
+  for(int i = 0; i < 3; i++){
+    frame_list[i] = -1;
+  }
+
+  for(int i = 0; i < TOTAL_FRAME; i++){
+    frame_array[i].index = i;
+    frame_array[i].size = 0;
+    frame_array[i].val = ALLOCABLE;
+    frame_array[i].prev = 0;
+    frame_array[i].next = 0;
+  }
+
+  // mark corresponding frames as reserved 
+  for(int i = 0; i < reserve_pos; i++){
+    int start = reserve_section[i][0];
+    int end = reserve_section[i][1];
+    for(int i = start; i <= end; i++){
+      frame_array[i].val = RESERVED;
+    }
+  }
+
+  for(unsigned int n = 0; n < TOTAL_FRAME; n++){
+    framearray_entry* target = &frame_array[n];
+    unsigned int idx = n;
+
+    if(target->val == RESERVED || target->val == CONTINIOUS) continue;
+
+    for(int i = target->size; i <= MAX_BLOCK_SIZE_ORDER; i++){
+      unsigned int buddy = idx ^ pow(2, i);
+      framearray_entry* frame_buddy = &frame_array[buddy];
+
+      if( i < MAX_BLOCK_SIZE_ORDER && frame_buddy->val == ALLOCABLE && i == frame_buddy->size){
+        if(frame_buddy->prev != 0){
+          frame_buddy->prev->next = frame_buddy->next;
+        }
+        else{
+          if(frame_buddy->next != 0){
+            frame_list[frame_buddy->size] = frame_buddy->next->index;
+          }
+          else{
+            frame_list[frame_buddy->size] = -1;
+          }
+        }
+
+        if(frame_buddy->next != 0){
+          frame_buddy->next->prev = frame_buddy->prev;
+        }
+
+        frame_buddy->prev = 0;
+        frame_buddy->next = 0;
+        frame_buddy->val = CONTINIOUS;
+        frame_buddy->size = -1;
+        target->val = CONTINIOUS;
+
+        if(frame_buddy->index < target->index){
+          idx = frame_buddy->index;
+          target = frame_buddy;
+        }
+      }
+      else{
+        target->size = i;
+        target->val = ALLOCABLE;
+        target->prev = 0;
+        target->next = 0;
+        if(frame_list[i] != -1){
+          target->next = &frame_array[frame_list[i]];
+          frame_array[frame_list[i]].prev = target;
+        }
+        frame_list[i] = target->index;
+        break;
+      }
+    }
+  }
+
+  for (int i=0; i <= MAX_BLOCK_SIZE_ORDER; i++) {
+    if (frame_list[i] != -1)
+        printf("[DEBUG] Head of order %d has frame array index %d.\n",i,frame_list[i]);
+    else
+        printf("[DEBUG] Head of order %d has frame array index null.\n",i);
+  }
+  max_size = MEM_PAGE_SIZE * pow(2, MAX_BLOCK_SIZE_ORDER - 1);
+
+}
+
 void init_memory(){
+  
   // initialize the frame array
   int n_frame_block = pow(2, MAX_BLOCK_SIZE_ORDER);
   for(int i = 0; i < 3; i++){

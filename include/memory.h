@@ -2,8 +2,10 @@
 #define _MEMORY_H
 
 #define MEM_PAGE_SIZE 4096
-#define MEM_START 0x10000000
-#define MEM_END 0x20000000
+// #define MEM_START 0x10000000
+#define MEM_START 0x0
+// #define MEM_END 0x20000000
+#define MEM_END 0x3C000000
 #define TOTAL_FRAME (MEM_END - MEM_START) / MEM_PAGE_SIZE
 #define MAX_BLOCK_SIZE_ORDER 3 
 
@@ -15,6 +17,7 @@
 #define ALLOCABLE 1
 #define OCCUIPITED 2
 #define CONTINIOUS 3
+#define RESERVED 4
 
 struct framearray_entry{
   unsigned int index;
@@ -40,9 +43,10 @@ struct memory_pool{
 };
 
 void init_memory();
+void init_memory_reserve();
 void* page_malloc(unsigned int);
 void page_free(void* address);
-
+void memory_reserve(void* start, void* end);
 void* malloc(unsigned int);
 void free(void* address);
 

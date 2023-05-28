@@ -284,6 +284,10 @@ void main(){
   // set up serial console
     uart_init();
     fdt_traverse((fdt_header*)DTB_BASE, initramfs_callback);
+    // fdt_traverse((fdt_header*)DTB_BASE, initramfs_end_callback);
+    fdt_reserve_memory((fdt_header*) DTB_BASE);
+    initramfs_reserve_memory((fdt_header*) DTB_BASE);
+
     asm volatile("msr DAIFClr, 0xf");
     core_timer_enable();
     uart_puts("CPIO_BASE: ");
@@ -303,7 +307,7 @@ void main(){
     uart_puts("\r\n\tARM MEMORY SIZE: ");
     uart_hex(size);
     uart_puts("\r\n");
-    init_memory();
+    init_memory_reserve();
     while(1) {
       shell();
     }
