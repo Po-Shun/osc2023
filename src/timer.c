@@ -1,7 +1,16 @@
 #include "timer.h"
 #include "uart.h"
 #include "allocate.h"
+#include "scheduler.h"
 static struct event* event_head = 0;
+
+void enable_irq() {
+  asm volatile("msr daifclr, 0xf");
+}
+
+void disable_irq() {
+  asm volatile("msr daifset, 0xf");
+}
 
 void time_elapsed(){
   unsigned int sec;
@@ -69,18 +78,27 @@ void add_timer(void (*callback)(char*), char* msg, unsigned long timeout){
 }
 
 void core_timer_handle(){
-  if(event_head == 0){
-    two_sec_interrupt();
+  // printf("INTERRUPT\n");
+  unsigned long cpu_freq = get_cpu_freq();
+  set_timer_expire(cpu_freq >> 5);
+  if(!*(preemptable)){
+    return;
   }
-  else{
-    struct event* select = event_head;
-    event_head = event_head->next;
-    select->callback(select->msg);
-    volatile unsigned int cur_time;
-    asm volatile("mrs %0, cntpct_el0"
-                : "=r" (cur_time));
-    set_timer_expire(event_head->expired_time - cur_time);
-  }
+  enable_irq();
+  select_task();
+  disable_irq();
+  // if(event_head == 0){
+  //   two_sec_interrupt();
+  // }
+  // else{
+  //   struct event* select = event_head;
+  //   event_head = event_head->next;
+  //   select->callback(select->msg);
+  //   volatile unsigned int cur_time;
+  //   asm volatile("mrs %0, cntpct_el0"
+  //               : "=r" (cur_time));
+  //   set_timer_expire(event_head->expired_time - cur_time);
+  // }
 }
 
 void timer_print_callback(char* msg){

@@ -49,5 +49,8 @@ void page_free(void* address);
 void memory_reserve(void* start, void* end);
 void* malloc(unsigned int);
 void free(void* address);
-
+void memzero(unsigned long, unsigned long);
+void* memset(void *dst, char c, unsigned long len);
+unsigned int get_required_order(unsigned int size);
+void *memcpy(void *dst, const void *src, unsigned int len);
 #endif

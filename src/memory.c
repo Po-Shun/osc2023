@@ -40,28 +40,28 @@ int get_free_frame_form_fram_list(int order){
 }
 
 void* page_malloc(unsigned int size){
-  printf("-----------Page malloc-------------------\n");
+  // printf("-----------Page malloc-------------------\n");
   if(size > max_size){
-    printf("[ERROR] Requested size exceed the maximum size of block %d \n\r", (int) max_size);
+    // printf("[ERROR] Requested size exceed the maximum size of block %d \n\r", (int) max_size);
     return 0;
   }
   
   unsigned int order = get_required_order(size);
-  printf("[DEBUG] Require order: %d\r\n", order);
+  // printf("[DEBUG] Require order: %d\r\n", order);
   int free_order = get_free_frame_form_fram_list(order);
-  printf("[DEBUG] Free order: %d\r\n", free_order);
+  // printf("[DEBUG] Free order: %d\r\n", free_order);
   while(free_order != order){
-    printf("[DEBUG] frame list %d\n", frame_list[free_order]);
+    // printf("[DEBUG] frame list %d\n", frame_list[free_order]);
     framearray_entry*  split_left = &frame_array[frame_list[free_order]];
     if(split_left->next != 0) {
       frame_list[free_order] = split_left->next->index;
       frame_array[frame_list[free_order]].prev = 0;
     }
     else frame_list[free_order] = -1;
-    if (frame_list[free_order] != -1)
-      printf("[DEBUG] Split at order %d, head is 0x%x now.\n", free_order, frame_list[free_order]);
-    else
-      printf("[DEBUG] Split at order %d, head is Null now.\n", free_order);
+    // if (frame_list[free_order] != -1)
+    //   printf("[DEBUG] Split at order %d, head is 0x%x now.\n", free_order, frame_list[free_order]);
+    // else
+    //   printf("[DEBUG] Split at order %d, head is Null now.\n", free_order);
 
     unsigned int middle_offset = pow(2, split_left->size - 1);
     // split total 4kb * 2 ^ middle_offset 
@@ -87,12 +87,12 @@ void* page_malloc(unsigned int size){
   int ret_index = frame_list[order];
   framearray_entry* temp = frame_array[ret_index].next;
   if(temp != 0){
-    printf("T\n");
+    // printf("T\n");
     frame_list[order] = temp->index;
     temp->prev = 0;
   }
   else{
-    printf("F\n");
+    // printf("F\n");
     frame_list[order] = -1;
   }
   
@@ -102,12 +102,12 @@ void* page_malloc(unsigned int size){
   ret->val = OCCUIPITED;
   ret->prev = 0;
   ret->next = 0;
-  for (int i=0; i <= MAX_BLOCK_SIZE_ORDER; i++) {
-    if (frame_list[i] != -1)
-      printf("[DEBUG] Head of order %d has frame array index %d.\n",i,frame_list[i]);
-    else
-      printf("[DEBUG] Head of order %d has frame array index null.\n",i);
-  }
+  // for (int i=0; i <= MAX_BLOCK_SIZE_ORDER; i++) {
+  //   if (frame_list[i] != -1)
+  //     printf("[DEBUG] Head of order %d has frame array index %d.\n",i,frame_list[i]);
+  //   else
+  //     printf("[DEBUG] Head of order %d has frame array index null.\n",i);
+  // }
   return (void*)MEM_START+(MEM_PAGE_SIZE*ret->index);
 
 }
@@ -115,16 +115,16 @@ void* page_malloc(unsigned int size){
 void page_free(void* address){
   unsigned int page_num = ((unsigned int)address- MEM_START) / MEM_PAGE_SIZE;
   framearray_entry* target = &frame_array[page_num];
-  printf("---------page free start----------\n");
-  printf("[DEBUG] Now freeing address 0x%x with frame index %d.\n", address, (int)page_num);
+  // printf("---------page free start----------\n");
+  // printf("[DEBUG] Now freeing address 0x%x with frame index %d.\n", address, (int)page_num);
   for(int i = target->size; i <= MAX_BLOCK_SIZE_ORDER; i++){
     // find the buddy 
     unsigned int buddy = page_num ^ pow(2, i);
     framearray_entry* frame_buddy = &frame_array[buddy];
-    printf("[DEBUG] Index %d at order %d, buddy %d at order %d state %d.\n", 
-                (int)page_num, (int)i, (int)buddy, frame_buddy->size, frame_buddy->val);
+    // printf("[DEBUG] Index %d at order %d, buddy %d at order %d state %d.\n", 
+    //             (int)page_num, (int)i, (int)buddy, frame_buddy->size, frame_buddy->val);
     if(i <= MAX_BLOCK_SIZE_ORDER - 1 && frame_buddy->val == ALLOCABLE && i == frame_buddy->size){
-      printf("[DEBUG] Merging from order %d. Frame indices %d, %d.\n", i, (int)buddy, (int)page_num);
+      // printf("[DEBUG] Merging from order %d. Frame indices %d, %d.\n", i, (int)buddy, (int)page_num);
       if(frame_buddy->prev != 0){
         frame_buddy->prev->next = frame_buddy->next;
       }
@@ -153,13 +153,13 @@ void page_free(void* address){
         target = frame_buddy;
       }
 
-      for (int i=0; i <= MAX_BLOCK_SIZE_ORDER; i++) {
-        if (frame_list[i] != -1)
-          printf("[DEBUG] Head of order %d has frame array index %d.\n",i,frame_list[i]);
-        else
-          printf("[DEBUG] Head of order %d has frame array index null.\n",i);
-      }
-      printf("[DEBUG] Frame index of next merge target is %d.\n", (int)page_num);
+      // for (int i=0; i <= MAX_BLOCK_SIZE_ORDER; i++) {
+      //   if (frame_list[i] != -1)
+      //     printf("[DEBUG] Head of order %d has frame array index %d.\n",i,frame_list[i]);
+      //   else
+      //     printf("[DEBUG] Head of order %d has frame array index null.\n",i);
+      // }
+      // printf("[DEBUG] Frame index of next merge target is %d.\n", (int)page_num);
 
 
     }
@@ -168,24 +168,24 @@ void page_free(void* address){
       target->val = ALLOCABLE;
       target->prev = 0;
       target->next = 0;
-      printf("[DEBUG] frame list %d\n", frame_list[i]);
-      printf("[DEBUG] target next %d\n", target->next->index);
+      // printf("[DEBUG] frame list %d\n", frame_list[i]);
+      // printf("[DEBUG] target next %d\n", target->next->index);
       if(frame_list[i] != -1){
         target->next = &frame_array[frame_list[i]];
         frame_array[frame_list[i]].prev = target;
       }
       frame_list[i] = target->index;
-      printf("[DEBUG] Frame index %d pushed to frame list of order %d\n", target->index, i);
+      // printf("[DEBUG] Frame index %d pushed to frame list of order %d\n", target->index, i);
       break;
     }
   }
 
-  for (int i=0; i <= MAX_BLOCK_SIZE_ORDER; i++) {
-    if (frame_list[i] != -1)
-        printf("[DEBUG] Head of order %d has frame array index %d.\n",i,frame_list[i]);
-    else
-        printf("[DEBUG] Head of order %d has frame array index null.\n",i);
-  }
+  // for (int i=0; i <= MAX_BLOCK_SIZE_ORDER; i++) {
+  //   if (frame_list[i] != -1)
+  //       printf("[DEBUG] Head of order %d has frame array index %d.\n",i,frame_list[i]);
+  //   else
+  //       printf("[DEBUG] Head of order %d has frame array index null.\n",i);
+  // }
 
 }
 
@@ -197,7 +197,7 @@ int find_fit_chunk_size(unsigned int size){
     if(temp != 0) fit_size = (size /16 + 1) * 16;
     else fit_size = size;
   } 
-  printf("[DEBUG] fit_size %d\n", fit_size);
+  // printf("[DEBUG] fit_size %d\n", fit_size);
   return fit_size;
 }
 
@@ -217,7 +217,7 @@ int find_fit_pool_idx(unsigned int size){
   unsigned int fit_size = find_fit_chunk_size(size);
 
   if(fit_size >= MEM_PAGE_SIZE){
-    printf("[ERROR] Request chunk size larger equal than page size\n");
+    // printf("[ERROR] Request chunk size larger equal than page size\n");
     return -1;
   }
 
@@ -243,9 +243,9 @@ int find_free_chunk(struct memory_pool* pool){
 }
 
 void* malloc(unsigned int size){
-  printf("----------mallloc start------------\n");
+  // printf("----------mallloc start------------\n");
   int pool_idx = find_fit_pool_idx(size);
-  printf("[DEBUG] fit pool idx %d\n", pool_idx);
+  // printf("[DEBUG] fit pool idx %d\n", pool_idx);
 
   struct memory_pool* target_pool = &mpools[pool_idx];
   int free_chunk_page = find_free_chunk(target_pool);
@@ -258,14 +258,14 @@ void* malloc(unsigned int size){
   }
 
   if(target_pool->page_used >= MAX_POOL_PAGE && target_pool->chunk_allocate[target_pool->page_used - 1] >= target_pool->chunk_pre_page){
-    printf("[DEBUG] reach pool maximum chunk\n");
+    // printf("[DEBUG] reach pool maximum chunk\n");
     return 0;
   }
 
   // the allocated page are all full, request new page to allocate the chunk 
   if((target_pool->page_used > 0 && target_pool->chunk_allocate[target_pool->page_used - 1] >= target_pool->chunk_pre_page) || (target_pool->page_used == 0 && target_pool->chunk_allocate[0] == 0)){
     target_pool->page_ptr[target_pool->page_used] = page_malloc(MEM_PAGE_SIZE);
-    printf("[DEBUG] Allocate new page for reqested chunk\n");
+    // printf("[DEBUG] Allocate new page for reqested chunk\n");
     target_pool->page_used ++;
     target_pool->chunk_pos[target_pool->page_used - 1] = 0; 
   }
@@ -273,25 +273,25 @@ void* malloc(unsigned int size){
   target_pool->chunk_pos[target_pool->page_used - 1] ++;
   target_pool->chunk_allocate[target_pool->page_used - 1] ++;
 
-  printf("[DEGUG] allocate new chunk finish, pos %x\n", ret);
+  // printf("[DEGUG] allocate new chunk finish, pos %x\n", ret);
   return ret;
 }
 
 void free(void* address){
-  printf("----------free start----------\n");
+  // printf("----------free start----------\n");
   void* prefix_addr0 = (void*)((unsigned long long)address);
-  printf("[DEBUG] prefix_addr %x\n", prefix_addr0);
+  // printf("[DEBUG] prefix_addr %x\n", prefix_addr0);
   void* prefix_addr = (void*)((unsigned long long)address & 0xfffff000);
-  printf("[DEBUG] prefix_addr %x\n", prefix_addr);
+  // printf("[DEBUG] prefix_addr %x\n", prefix_addr);
   for(int i = 0; i < MAX_POOL_NUM; i++){
     for(int j = 0; j < mpools[i].page_used; j++){
       void *prefix_base_addr = (void*)((unsigned long long )mpools[i].page_ptr[j] & 0xfffff000);
       if(prefix_addr == prefix_base_addr){
-        printf("[DEBUG] free chunk form pool idx %d\n", i);
+        // printf("[DEBUG] free chunk form pool idx %d\n", i);
         struct memory_pool* target_pool = &mpools[i];
         target_pool->chunk_allocate[j] --;
         int flag = target_pool->chunk_allocate[j];
-        printf("[DEBUG] flag %d\n", flag);
+        // printf("[DEBUG] flag %d\n", flag);
         if(flag != 0){
           struct chunk* old_free_chunk = target_pool->free_chunk[j];
           target_pool->free_chunk[j] = (struct chunk*) address;
@@ -301,7 +301,7 @@ void free(void* address){
         else{
           page_free(target_pool->page_ptr[j]);
           for(int pos = j + 1; pos < target_pool->page_used; pos ++){
-            printf("[DEBUG] rebase pages\n");
+            // printf("[DEBUG] rebase pages\n");
             target_pool->chunk_allocate[pos - 1] = target_pool->chunk_allocate[pos]; 
             target_pool->chunk_pos[pos - 1]  = target_pool->chunk_pos[pos];
             target_pool->page_ptr[pos - 1] = target_pool->page_ptr[pos];
@@ -309,7 +309,7 @@ void free(void* address){
           }
           target_pool->page_used --;
           if(target_pool->page_used == 0){
-            printf("[DEBUG] free unused mpool\n");
+            // printf("[DEBUG] free unused mpool\n");
             target_pool->chunk_size = 0;
           }
 
@@ -319,12 +319,12 @@ void free(void* address){
       }
     }
   }
-  printf("[DEBUG] couldn't find the target\n");
+  // printf("[DEBUG] couldn't find the target\n");
 }
 
 unsigned int find_page_frame_index(void* pos){
   unsigned int ret = (int)((unsigned int)pos) / MEM_PAGE_SIZE;
-  printf("IDX: 0x%x\n", ret);
+  // printf("IDX: 0x%x\n", ret);
   return ret;
 }
 void memory_reserve(void* start, void* end){
@@ -334,6 +334,7 @@ void memory_reserve(void* start, void* end){
 }
 
 void init_memory_reserve(){
+  printf("INIT\n");
   int n_frame_block = pow(2, MAX_BLOCK_SIZE_ORDER);
   // reserve kernel image 
   memory_reserve(0x0, (void*)kernel_end);
@@ -459,4 +460,21 @@ void init_memory(){
   frame_list[MAX_BLOCK_SIZE_ORDER] = 0;
   max_size = MEM_PAGE_SIZE * pow(2, MAX_BLOCK_SIZE_ORDER - 1);
   printf("------init memory finish------\n");
+}
+
+void* memset(void *dst, char c, unsigned long len) {
+  char* dup = (char*)dst;
+  while (len--) {
+    *dup++ = c;
+  }
+  return dst;
+}
+
+void* memcpy(void *dst, const void *src, unsigned int len) {
+  char *cdst = (char*)dst;
+  char *csrc  =(char*)src;
+  for (unsigned int i = 0; i < len; i++) {
+    cdst[i] = csrc[i];
+  }
+  return dst;
 }

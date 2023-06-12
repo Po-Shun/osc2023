@@ -32,7 +32,7 @@ kernel8.img: $(SRC_DIR)/linker.ld $(OBJ_FILES)
 	$(ARMOBJCOPY) $(BUILD_DIR)/kernel8.elf -O binary kernel8.img
 
 run_stdio: all
-	qemu-system-aarch64 -M raspi3b -kernel kernel8.img -display none -initrd initramfs.cpio -serial null -serial stdio -dtb bcm2710-rpi-3-b-plus.dtb
+	qemu-system-aarch64 -M raspi3b -kernel kernel8.img -initrd initramfs.cpio -serial null -serial stdio -dtb bcm2710-rpi-3-b-plus.dtb
 
 run: all
 	qemu-system-aarch64 -M raspi3b -kernel kernel8.img -serial null  -initrd initramfs.cpio -serial pty -dtb bcm2710-rpi-3-b-plus.dtb
