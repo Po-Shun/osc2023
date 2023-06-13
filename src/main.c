@@ -7,154 +7,14 @@
 #include "fdt.h"
 #include "timer.h"
 #include "memory.h"
+#include "scheduler.h"
+#include "task.h"
+#include "cpio.h"
+#include "syscall.h"
 #define RECV_LEN 100
 #define USER_STACK_TOP 0x40000
 static char recv_buf[RECV_LEN] = {0};
-
-extern void from_el1_to_el0(unsigned int instr_addr, unsigned int stack_addr);
-
-// total 110 bytes 
-struct cpio_newc_header {
-		   char	   c_magic[6];
-		   char	   c_ino[8];
-		   char	   c_mode[8];
-		   char	   c_uid[8];
-		   char	   c_gid[8];
-		   char	   c_nlink[8];
-		   char	   c_mtime[8];
-		   char	   c_filesize[8];
-		   char	   c_devmajor[8];
-		   char	   c_devminor[8];
-		   char	   c_rdevmajor[8];
-		   char	   c_rdevminor[8];
-		   char	   c_namesize[8];
-		   char	   c_check[8];
-	   };
-
-int _8byte_hexadecimal_to_int(char* msb){
-  int ret = 0;
-  for(int i = 0; i < 8; i++){
-    int temp = *(msb + i);
-    if(temp >= 'a'){
-      temp = temp - 'a' + 10;
-    }
-    else{
-      temp -= '0';
-    }
-    ret *= 16;
-    ret += temp;
-  }
-  return ret;
-}
-
-void ls_cmd(){
-  struct cpio_newc_header *pos = (struct cpio_newc_header*)CPIO_BASE;
-  char *current = (char*) CPIO_BASE;
-  while(1){
-    pos = (struct cpio_newc_header*)current;
-    int namesize = _8byte_hexadecimal_to_int(pos->c_namesize);
-    int filesize = _8byte_hexadecimal_to_int(pos->c_filesize);
-    current += sizeof(struct cpio_newc_header);
-    if(strcmp(current, "TRAILER!!!") == 0) break;
-    uart_puts(current);
-    uart_puts("\r\n");
-    // total size of the fixed header plus pathname is a multiple	of four
-    current += namesize;
-    int total_size = current - (char*) pos;
-    int reminder = total_size % 4;
-    if(reminder != 0){
-      current  += (4 - reminder);
-    }
-    current += filesize;
-    total_size = current - (char*) pos;
-    reminder = total_size % 4;
-    if(reminder != 0){
-      current += (4 - reminder);
-    }
-  }
-}
-
-void cat_cmd(){
-  uart_puts("Filename: ");
-  uart_getline(recv_buf, RECV_LEN);
-  struct cpio_newc_header *pos = (struct cpio_newc_header*)CPIO_BASE;
-  char *current = (char*) CPIO_BASE;
-  while(1){
-    pos = (struct cpio_newc_header*)current;
-    int namesize = _8byte_hexadecimal_to_int(pos->c_namesize);
-    int filesize = _8byte_hexadecimal_to_int(pos->c_filesize);
-    current += sizeof(struct cpio_newc_header);
-    if(strcmp(current, "TRAILER!!!") == 0) {
-      uart_puts("\r");
-      uart_puts("File Not Found\n\r");
-      break;
-    }
-    int output_flag = 0;
-    if(strcmp(current, recv_buf) == 0){
-      output_flag = 1;
-    }
-    current += namesize;
-    int total_size = current - (char*) pos;
-    int reminder = total_size % 4;
-    if(reminder != 0){
-      current  += (4 - reminder);
-    }
-    if(output_flag == 1){
-      uart_puts("\r");
-      uart_puts(current);
-      break;
-    }
-    current += filesize;
-    total_size = current - (char*) pos;
-    reminder = total_size % 4;
-    if(reminder != 0){
-      current += (4 - reminder);
-    }
-  }
-}
-
-void exec_cmd(){
-  uart_puts("Filename: ");
-  uart_getline(recv_buf, RECV_LEN);
-  struct cpio_newc_header *pos = (struct cpio_newc_header*)CPIO_BASE;
-  char *current = (char*) CPIO_BASE;
-
-  while(1){
-    pos = (struct cpio_newc_header*)current;
-    int namesize = _8byte_hexadecimal_to_int(pos->c_namesize);
-    int filesize = _8byte_hexadecimal_to_int(pos->c_filesize);
-    current += sizeof(struct cpio_newc_header);
-    if(strcmp(current, "TRAILER!!!") == 0) {
-      uart_puts("\r");
-      uart_puts("File Not Found\n\r");
-      break;
-    }
-    int load_flag = 0;
-    if(strcmp(current, recv_buf) == 0){
-      load_flag = 1;
-    }
-    current += namesize;
-    int total_size = current - (char*) pos;
-    int reminder = total_size % 4;
-    if(reminder != 0){
-      current  += (4 - reminder);
-    }
-    if(load_flag == 1){
-      uart_puts("\r");
-      char *program_start = (void*)current;
-      uart_puts("LOAD USER PROG\n\r");
-      from_el1_to_el0((unsigned int)program_start, (unsigned int)USER_STACK_TOP);
-      break;
-    }
-    current += filesize;
-    total_size = current - (char*) pos;
-    reminder = total_size % 4;
-    if(reminder != 0){
-      current += (4 - reminder);
-    }
-  }
-}
-
+static int shared = 1;
 void timer_print1_callback(char* msg){
   unsigned int sec;
   volatile unsigned int cntpct_el0;
@@ -171,23 +31,80 @@ void timer_print1_callback(char* msg){
   uart_puts(msg);
 }
 
+void foo() {
+//  printf("FOO start: %d\n", task_queue->cur->self->pid);
+  for(int i = 0; i < 10; ++i) {
+      // printf("TASK_ID: %d, I: %d\n", task_queue->cur->self->pid, i);
+      // delay(1000000);
+      select_task();
+  }
+  // printf("FOO STOP: %d\n", task_queue->cur->self->pid);
+  mark_task_as_stop(task_queue->cur);
+  // printf("FOO state: %d, %d\n", task_queue->cur->self->pid, task_queue->cur->self->state);
+  while(1){
+    asm volatile("nop");
+  }
+}
+
+
+void user_foo() {
+ 
+   printf("User thread id: %d\n", getpid());
+
+    volatile unsigned int __attribute__((aligned(16))) mailbox[7];
+    mailbox[0] = 7 * 4;
+    mailbox[1] = REQUEST_CODE;
+    mailbox[2] = GET_BOARD_REVISION;
+    mailbox[3] = 4;
+    mailbox[4] = TAG_REQUEST_CODE;
+    mailbox[5] = 0;
+    mailbox[6] = END_TAG;
+    // printf("SSS: %x\n", mailbox);
+    mbox_call(0x8, mailbox);
+    printf("Board Revision:\t\t%x\n", mailbox[5]);
+
+    int pid = fork();
+    if (pid == 0) {
+        printf("Child says hello!\n");
+        while(1) {
+            // printf("Please don't kill me :(\n");
+            shared++;
+        }
+    } else if (pid > 0) {
+        printf("Parent says, \"My child has pid %d\"\n", pid);
+        printf("Shared? %d\n", shared);
+        for(int i = 0; i< 10; i++){
+          delay(10000000);
+        }
+        printf("Kill my own child :(\n");
+        kill(pid);
+        delay(10000000);
+        printf("shared %d\n", shared);
+    }
+
+    //char buf[4] = {0};
+    //uart_read(buf, 3);
+    //uart_write(buf, 3);
+
+    exit();
+
+}
+
+
+void video_player(){
+  
+  exec("syscall.img", 0);
+}
 void shell(){
+  enable_preempt();
   while(1){
     uart_getline(recv_buf, RECV_LEN);
     if(strcmp(recv_buf, "ls") == 0){
       uart_puts("\r");
       ls_cmd();
     }
-    else if(strcmp(recv_buf, "cat") == 0){
-      uart_puts("\r");
-      cat_cmd();
-    }
     else if(strcmp(recv_buf, "hello") == 0){
       uart_puts("\rHELLO WORLD\n\r");
-    }
-    else if(strcmp(recv_buf, "exec") == 0){
-      uart_puts("\r");
-      exec_cmd();
     }
     else if(strcmp(recv_buf, "async") == 0){
       uart_puts("\r");
@@ -258,6 +175,28 @@ void shell(){
       free(temp2);
       printf("testcase chunk allocate end\n\r");
     }
+    else if(strcmp(recv_buf, "test1") == 0){
+      printf("test_start\n");
+      for(int i = 0; i < 10; i++){
+        Thread(&foo);
+      }
+      printf("test_end\n");
+    }
+    else if(strcmp(recv_buf, "test2") == 0){
+      printf("test_start\n");
+      user_thread(&user_foo);
+      // user_foo();
+      printf("test_end\n");
+    }
+    else if(strcmp(recv_buf, "test") == 0){
+      printf("test_start\n");
+      unsigned long long tmp;
+      asm volatile("mrs %0, cntkctl_el1" : "=r"(tmp));
+      tmp |= 1;
+      asm volatile("msr cntkctl_el1, %0" : : "r"(tmp));
+      user_thread(&video_player);
+      printf("test_end\n");
+    }
     else if(strcmp(recv_buf, "help") == 0){
       uart_puts("help:\t\tlist available command\n\r");
       uart_puts("ls:\t\tlist initramfs files\n\r");
@@ -288,27 +227,36 @@ void main(){
     fdt_reserve_memory((fdt_header*) DTB_BASE);
     initramfs_reserve_memory((fdt_header*) DTB_BASE);
 
-    asm volatile("msr DAIFClr, 0xf");
-    core_timer_enable();
+    // asm volatile("msr DAIFClr, 0xf");
     uart_puts("CPIO_BASE: ");
     uart_hex(CPIO_BASE);
     uart_puts("\n\r");
     
     // say hello
     uart_puts("\r\n\t\tWelcome NYCU OSC 2023!\r\n");
-    uart_puts("Hardware Info:\r\n\t");
-    unsigned int revision, base, size;
-    get_board_revision(&revision);
-    uart_puts("Board Revision: ");
-    uart_hex(revision);
-    uart_puts("\r\n\tARM MEMORY BASE: ");
-    get_arm_memory(&base, &size);
-    uart_hex(base);
-    uart_puts("\r\n\tARM MEMORY SIZE: ");
-    uart_hex(size);
-    uart_puts("\r\n");
+    // uart_puts("Hardware Info:\r\n\t");
+    // unsigned int revision, base, size;
+    // get_board_revision(&revision);
+    // uart_puts("Board Revision: ");
+    // uart_hex(revision);
+    // uart_puts("\r\n\tARM MEMORY BASE: ");
+    // get_arm_memory(&base, &size);
+    // uart_hex(base);
+    // uart_puts("\r\n\tARM MEMORY SIZE: ");
+    // uart_hex(size);
+    // uart_puts("\r\n");
     init_memory_reserve();
-    while(1) {
-      shell();
-    }
+    init_task_queue();
+    Thread(&idle);
+    // for(int i = 0; i < 10; i++){
+    //     Thread(&foo);
+    // }
+    // Thread(&shell);
+    unsigned long long tmp;
+    asm volatile("mrs %0, cntkctl_el1" : "=r"(tmp));
+    tmp |= 1;
+    asm volatile("msr cntkctl_el1, %0" : : "r"(tmp));
+    user_thread(&video_player);
+    core_timer_enable();
+    // shell();
 }

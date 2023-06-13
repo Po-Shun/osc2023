@@ -18,5 +18,8 @@ void core_timer_handle();
 void time_multiplex_test();
 unsigned long get_cpu_freq();
 unsigned long get_current_time();
+void enable_irq();
+void disable_irq();
 void timer_print_callback(char* msg);
+extern void delay(unsigned long);
 #endif
